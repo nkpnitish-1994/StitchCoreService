@@ -1,0 +1,53 @@
+# Alteration Platform API
+
+The first backend slice for a manually operated clothing-alteration service.
+
+## Included
+
+- Role-aware customer, logistics, and admin APIs.
+- Customer addresses and multi-garment orders.
+- Alteration instructions and measurement JSON per garment.
+- Manual, audited status workflow.
+- Admin assignment of logistics partners and vendors.
+- QR identity for each garment.
+- Durable notification-job records and optional SQS publishing.
+- Django Admin for early operations.
+
+## Run locally
+
+```bash
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py createsuperuser
+.venv/bin/python manage.py runserver
+```
+
+Visit `/admin/` for internal operations, or use `/api/` for the REST endpoints.
+
+## Important endpoints
+
+```text
+POST /api/addresses/
+GET  /api/addresses/
+POST /api/orders/
+GET  /api/orders/
+GET  /api/orders/{id}/
+POST /api/orders/{id}/status/
+POST /api/orders/{id}/assign/       (admin only)
+POST /api/device-tokens/
+```
+
+## Notification path
+
+Set `NOTIFICATION_QUEUE_URL` to an SQS queue URL in AWS. Each approved order status
+change creates a `NotificationJob` in PostgreSQL and publishes the minimum delivery
+payload plus its ID to SQS. An SQS-triggered Lambda owns provider delivery and retries. The Lambda adapter is a
+deliberate integration boundary: it needs the selected WhatsApp provider and FCM
+credentials before real messages can be sent.
+
+## Production configuration
+
+Set `DEBUG=false`, `DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, `DB_ENGINE`, `DB_NAME`,
+`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `AWS_REGION`, `NOTIFICATION_QUEUE_URL`, and
+`INTERNAL_NOTIFICATION_SECRET`. Use `DB_ENGINE=django.db.backends.postgresql` for
+RDS PostgreSQL; SQLite is only for local development.
