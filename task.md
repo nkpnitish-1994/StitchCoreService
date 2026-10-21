@@ -456,7 +456,7 @@ All webhook handlers must verify the provider signature, be idempotent, and writ
 - Use AWS CDK v2 with TypeScript.
 - Keep all infrastructure under `infra/cdk/`.
 - Use separate AWS accounts for beta and production if possible; at minimum use separate stacks, databases, buckets, queues, and secrets.
-- Default target region: `ap-south-1` (Mumbai).
+- Default target region: `ap-southeast-2` (Sydney).
 - All infrastructure changes are reviewed through pull requests and deployed through CI/CD; avoid console-created production resources.
 - Tag all resources with `Project=StitchCore`, `Environment`, `Owner`, and `CostCenter`.
 
@@ -663,14 +663,14 @@ Never run seeded test data, destructive cleanup, or real WhatsApp/SMS notificati
 - [x] Implement early order creation, assignment, status workflow, Django Admin, SQS publisher skeleton, Lambda skeleton, and basic test.
 - [x] Create `AGENTS.md` and this implementation plan.
 - [x] Move API routes to `/api/v1/` and generate OpenAPI contract. Verified versioned routes, standardized errors, corrected action schemas, Lambda callback URL, and committed-schema consistency with 11 backend tests; OpenAPI validates without warnings.
-- [ ] Add local Docker Compose for Django, PostgreSQL, and test services.
-- [ ] Add environment configuration template and contributor setup instructions.
+- [x] Add local Compose services for PostgreSQL and LocalStack S3/SQS; Django runs separately through Makefile. Containerized Django/test-service orchestration remains deferred.
+- [x] Add environment configuration template, Makefile, and contributor setup instructions.
 
 ### Phase 1 — Backend pilot readiness
 
-- [ ] Phone OTP authentication and token lifecycle.
-- [ ] Full catalogue, pricing, serviceability, pickup-slot, and quote engine.
-- [ ] Production-ready order lifecycle and assignment history.
+- [ ] Production phone OTP authentication and token lifecycle. Partial: hashed development OTP, JWT issuance/refresh, restricted beta account sign-in and login throttling exist; real OTP provider and broader abuse protection remain.
+- [ ] Full catalogue, pricing, serviceability, pickup-slot, and quote engine. Partial: active catalogue, basic quotes, server-authoritative prices, order price snapshots and idempotent order creation exist; serviceability, slot capacity, full measurement validation and persisted quotes remain.
+- [ ] Production-ready order lifecycle and assignment history. Partial: manual transitions, row locking, actor checks, assignment audit events and customer timeline exist; structured garment custody confirmations and exhaustive transition matrix remain.
 - [ ] Media uploads with S3 presigned URLs and proof metadata.
 - [ ] Razorpay payment order, webhook verification, payment states/refunds.
 - [ ] Customer approvals, cancellation, rework domains.
@@ -679,28 +679,42 @@ Never run seeded test data, destructive cleanup, or real WhatsApp/SMS notificati
 
 ### Phase 2 — Customer web pilot
 
-- [ ] Next.js project and design system.
-- [ ] OTP, address, catalogue, order wizard, measurement framework, uploads.
+- [x] Next.js project, responsive shared styling and accessible form/focus basics. Full design/accessibility QA remains below.
+- [ ] Complete customer order experience. Partial: restricted beta sign-in, saved addresses, catalogue, multi-garment measurements, quote/review and retry-safe confirmation exist; real OTP, full measurement schemas and uploads remain.
 - [ ] Razorpay checkout.
-- [ ] Order tracking/history, support/rework.
+- [ ] Complete order tracking/history, support/rework. Partial: API-connected history/detail/timeline exist; customer support/rework requests remain.
 - [ ] Responsive/mobile browser QA and accessibility baseline.
 
 ### Phase 3 — Operations and logistics
 
 - [ ] Polish Django Admin views/actions for first operational pilot.
-- [ ] Admin web dashboard order queue, assignment, exceptions, catalogue management.
-- [ ] React Native/Expo app shell with customer and logistics roles.
+- [ ] Complete admin web dashboard. Partial: `/operations` has authenticated order queue, search, assignment and valid status actions; advanced exceptions/catalogue configuration remains in Django Admin or deferred.
+- [x] React Native/Expo app shell with customer and logistics screen scaffolds. Screens use demo data; functional mobile workflows remain below.
 - [ ] Logistics task workflow, QR scanning, photo proof, offline draft/retry support.
 - [ ] Push notification device registration/deep links.
 - [ ] Vendor profile only if manual pilot proves the need.
 
 ### Phase 4 — Infrastructure and deployments
 
-- [ ] Scaffold TypeScript AWS CDK application and stack boundaries.
+Deployment preparation (2026-10-21): added web/API Docker assets, same-origin HTTPS
+through CloudFront/ALB, private encrypted RDS, separate runtime secrets, admin
+static-file serving, readiness checks, and a locked one-off migration/deployment
+script. CDK beta/production assertions and local container checks are required.
+The previous Mumbai deployment was denied by organization SCP `p-b185vfbk`.
+Sydney (`ap-southeast-2`) is now the authorized region; its CDK bootstrap stack
+was verified as CREATE_COMPLETE during the current deployment session. At that
+check the application stack did not yet exist. Do not infer a Sydney policy denial
+from the historical Mumbai failure. Restricted beta uses generated test-account
+secrets, unpaid order requests and manual fulfillment; real provider features
+remain unfinished. Application deployment and public journey checks are pending.
+See `docs/beta-deployment.md`.
+
+
+- [x] Scaffold TypeScript AWS CDK application and environment configuration. Current resources share one application stack; splitting stacks remains optional follow-up work.
 - [ ] Provision beta environment.
 - [ ] Container build/ECR/ECS Fargate deployment.
 - [ ] RDS/S3/SQS/Lambda/Secrets/monitoring setup.
-- [ ] GitHub Actions PR checks and beta deployment.
+- [ ] Complete GitHub Actions PR checks and verified beta deployment pipeline. Backend/web/CDK checks and deployment workflow files exist; their live runs and broader security/mobile/E2E jobs remain unverified.
 - [ ] Production environment, approval gate, deployment/rollback runbooks.
 
 ### Phase 5 — Pilot launch hardening
@@ -734,6 +748,10 @@ A feature is done only when:
 - Full vendor marketplace/multi-vendor bidding.
 - Multi-city fulfillment automation.
 - Redis/Celery task infrastructure.
+
+Region decision (2026-10-21): the product owner authorized Sydney
+(`ap-southeast-2`) after the organization policy blocked Mumbai. The deployment
+keeps Django/ECS, PostgreSQL/RDS, private S3, and SQS/Lambda unchanged.
 
 ## 15. Decisions requiring owner input before implementation
 
@@ -870,7 +888,7 @@ DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
 DATABASE_URL=postgresql://stitchcore:stitchcore@localhost:5432/stitchcore
 REDIS_URL=                         # intentionally unused by MVP
 
-AWS_REGION=ap-south-1
+AWS_REGION=ap-southeast-2
 AWS_S3_MEDIA_BUCKET=stitchcore-local-media
 AWS_SQS_NOTIFICATION_QUEUE_URL=
 AWS_ENDPOINT_URL=                  # LocalStack only; blank in AWS
@@ -1243,7 +1261,7 @@ infra/cdk/
 export type EnvironmentConfig = {
   name: "beta" | "production";
   account: string;
-  region: "ap-south-1";
+  region: "ap-southeast-2";
   domainName: string;
   apiDesiredCount: number;
   apiCpu: number;

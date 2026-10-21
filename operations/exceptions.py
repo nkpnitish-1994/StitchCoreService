@@ -22,3 +22,9 @@ def api_exception_handler(exc, context):
         fields = {}
     response.data = {"code": code, "message": message, "fields": fields}
     return response
+
+
+class ProviderUnavailable(APIException):
+    status_code = 503
+    default_code = "provider_unavailable"
+    default_detail = "Phone sign-in is not configured for this environment."

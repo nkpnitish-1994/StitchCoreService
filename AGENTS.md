@@ -21,7 +21,7 @@ The initial product is deliberately operations-led: many decisions are made manu
 
 ### Customer
 
-- Sign in by phone/OTP (not yet implemented in the backend).
+- Sign in by phone/OTP (development challenge/verification exists; production provider remains pending). Restricted beta uses explicitly provisioned test accounts.
 - Save pickup/delivery addresses.
 - Create an order with one or more garments.
 - Choose an alteration service, give exact instructions/measurements, add notes and photos, and select a pickup slot.
@@ -116,7 +116,7 @@ State changes must be validated, recorded immutably in `StatusEvent`, attributed
 Customer iOS/Android app + customer website
                  │
                  ▼
-Django REST API on AWS ECS Fargate (Mumbai, ap-south-1)
+Django REST API on AWS ECS Fargate (Sydney, ap-southeast-2)
                  │
      ┌───────────┼────────────┐
      ▼           ▼            ▼
@@ -178,6 +178,9 @@ The repository already contains a Django REST foundation:
 - SQS publisher and an SQS Lambda notification-adapter skeleton.
 - Dockerfile suited to a Django container on ECS Fargate.
 - Initial workflow test.
+- Basic catalogue/quotes, server-priced idempotent order creation, development OTP/JWT and restricted beta sign-in.
+- API-connected customer web ordering/history/timeline and an operations queue with audited assignment/status controls.
+- Expo screen scaffolds, CDK infrastructure and deployment preparation; deployed status is tracked in `task.md`.
 
 The provider adapters are intentionally not live yet. They need selected provider accounts/credentials for WhatsApp, FCM, Razorpay, S3, SQS, Lambda, and RDS before production integration.
 

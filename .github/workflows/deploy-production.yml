@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - uses: aws-actions/configure-aws-credentials@v4
-        with: { role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}, aws-region: ap-south-1 }
+        with: { role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}, aws-region: ap-southeast-2 }
       - working-directory: infra/cdk
         run: npm install && npx cdk deploy --all -c env=production
       - run: echo "Run production-safe smoke tests only; do not seed data or send live provider notifications."

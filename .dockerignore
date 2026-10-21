@@ -8,3 +8,10 @@ db.sqlite3
 __pycache__
 .env
 
+
+.aws
+.codex
+.agents
+infra/cdk/cdk.out
+infra/cdk/dist
+frontend

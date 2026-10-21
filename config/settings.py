@@ -21,6 +21,7 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    *([] if DEBUG else ["whitenoise.middleware.WhiteNoiseMiddleware"]),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -59,7 +60,13 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+CSRF_TRUSTED_ORIGINS = [value for value in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if value]
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_CLOUDFRONT_FORWARDED_PROTO", "https")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "operations.User"
 
@@ -72,6 +79,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "EXCEPTION_HANDLER": "operations.exceptions.api_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {"beta_login": "5/min"},
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 SPECTACULAR_SETTINGS = {
@@ -82,9 +90,12 @@ SPECTACULAR_SETTINGS = {
 }
 SIMPLE_JWT = {"ACCESS_TOKEN_LIFETIME": timedelta(minutes=30), "REFRESH_TOKEN_LIFETIME": timedelta(days=30), "ROTATE_REFRESH_TOKENS": True}
 
-AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
+AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
 AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "")
 NOTIFICATION_QUEUE_URL = os.getenv("AWS_SQS_NOTIFICATION_QUEUE_URL", "")
 INTERNAL_NOTIFICATION_SECRET = os.getenv("INTERNAL_NOTIFICATION_SECRET", "")
 OTP_SECRET = os.getenv("OTP_SECRET", SECRET_KEY)
 OTP_PROVIDER = os.getenv("OTP_PROVIDER", "console")
+
+STITCHCORE_ENV = os.getenv("STITCHCORE_ENV", "local")
+BETA_AUTH_ENABLED = os.getenv("BETA_AUTH_ENABLED", "false").lower() == "true"

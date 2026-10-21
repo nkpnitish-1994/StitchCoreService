@@ -156,6 +156,63 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/auth/beta/session:
+    post:
+      operationId: v1_auth_beta_session_create
+      description: Password sign-in for explicitly provisioned test accounts, never
+        production.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BetaSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BetaSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BetaSession'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/config:
+    get:
+      operationId: v1_auth_config_retrieve
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/me:
+    get:
+      operationId: v1_auth_me_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/auth/otp/request:
     post:
       operationId: v1_auth_otp_request_create
@@ -205,6 +262,33 @@ paths:
               schema:
                 type: object
                 additionalProperties: {}
+          description: ''
+  /api/v1/auth/token/refresh:
+    post:
+      operationId: v1_auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
           description: ''
   /api/v1/catalog/services:
     get:
@@ -273,6 +357,23 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/operations/options:
+    get:
+      operationId: v1_operations_options_retrieve
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/orders/:
     get:
       operationId: v1_orders_list
@@ -373,94 +474,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Order'
           description: ''
-    put:
-      operationId: v1_orders_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this order.
-        required: true
-      tags:
-      - v1
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Order'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/Order'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/Order'
-        required: true
-      security:
-      - jwtAuth: []
-      - cookieAuth: []
-      - basicAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
-          description: ''
-    patch:
-      operationId: v1_orders_partial_update
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this order.
-        required: true
-      tags:
-      - v1
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedOrder'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedOrder'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedOrder'
-      security:
-      - jwtAuth: []
-      - cookieAuth: []
-      - basicAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
-          description: ''
-    delete:
-      operationId: v1_orders_destroy
-      parameters:
-      - in: path
-        name: id
-        schema:
-          type: string
-          format: uuid
-        description: A UUID string identifying this order.
-        required: true
-      tags:
-      - v1
-      security:
-      - jwtAuth: []
-      - cookieAuth: []
-      - basicAuth: []
-      responses:
-        '204':
-          description: No response body
   /api/v1/orders/{id}/assign/:
     post:
       operationId: v1_orders_assign_create
@@ -634,6 +647,18 @@ components:
           type: integer
         vendor_id:
           type: integer
+    BetaSession:
+      type: object
+      properties:
+        username:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - password
+      - username
     CreateOrder:
       type: object
       properties:
@@ -893,65 +918,6 @@ components:
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
           nullable: true
-    PatchedOrder:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          readOnly: true
-        order_number:
-          type: string
-          readOnly: true
-        status:
-          allOf:
-          - $ref: '#/components/schemas/OrderStatusEnum'
-          readOnly: true
-        pickup_window:
-          type: string
-          maxLength: 100
-        expected_delivery_date:
-          type: string
-          format: date
-          nullable: true
-        subtotal_paise:
-          type: integer
-          readOnly: true
-        delivery_fee_paise:
-          type: integer
-          readOnly: true
-        total_paise:
-          type: integer
-          readOnly: true
-        address:
-          allOf:
-          - $ref: '#/components/schemas/Address'
-          readOnly: true
-        garments:
-          type: array
-          items:
-            $ref: '#/components/schemas/Garment'
-        status_events:
-          type: array
-          items:
-            $ref: '#/components/schemas/StatusEvent'
-          readOnly: true
-        logistics_partner_id:
-          type: integer
-          nullable: true
-          readOnly: true
-        vendor_id:
-          type: integer
-          nullable: true
-          readOnly: true
-        created_at:
-          type: string
-          format: date-time
-          readOnly: true
-        updated_at:
-          type: string
-          format: date-time
-          readOnly: true
     PlatformEnum:
       enum:
       - ios
@@ -1057,6 +1023,17 @@ components:
       - created_at
       - id
       - to_status
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
   securitySchemes:
     basicAuth:
       type: http

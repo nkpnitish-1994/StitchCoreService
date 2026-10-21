@@ -91,3 +91,10 @@ The live schema is available at `/api/schema/` and Swagger UI at `/api/docs/`.
 Business endpoints use `/api/v1/`; unversioned business routes are not supported.
 Errors use `{"code": "...", "message": "...", "fields": {}}`; validation errors
 include field details. Keep the generated contract committed with API changes.
+
+## Beta hosting
+
+See [the beta deployment runbook](docs/beta-deployment.md) for the HTTPS web/API
+stack, first-deploy migration sequence, checks, and current AWS policy blocker.
+The customer website remains a scaffold; deployment alone does not complete OTP,
+ordering, checkout, or tracking.

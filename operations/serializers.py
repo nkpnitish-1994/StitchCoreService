@@ -17,7 +17,7 @@ class AlterationItemSerializer(serializers.ModelSerializer):
 
 
 class GarmentSerializer(serializers.ModelSerializer):
-    alterations = AlterationItemSerializer(many=True)
+    alterations = AlterationItemSerializer(many=True, min_length=1)
 
     class Meta:
         model = Garment
@@ -56,26 +56,20 @@ class CreateOrderSerializer(serializers.Serializer):
     quote_id = serializers.UUIDField(required=False)
     garments = GarmentSerializer(many=True, min_length=1)
 
-    def validate_address(self, address):
+    def validate_address_id(self, address):
         if address.user_id != self.context["request"].user.id:
             raise serializers.ValidationError("Choose one of your saved addresses.")
         return address
 
     def create(self, validated_data):
+        from .services import create_customer_order
         validated_data.pop("quote_id", None)
-        garments = validated_data.pop("garments")
-        subtotal = sum(
-            item["quoted_price_paise"] * garment.get("quantity", 1)
-            for garment in garments for item in garment["alterations"]
+        key = self.context["request"].headers.get("Idempotency-Key")
+        if key:
+            key = serializers.UUIDField().run_validation(key)
+        return create_customer_order(
+            customer=self.context["request"].user, idempotency_key=key, **validated_data
         )
-        order = Order.objects.create(customer=self.context["request"].user, subtotal_paise=subtotal, **validated_data)
-        for garment_data in garments:
-            alterations = garment_data.pop("alterations")
-            garment = Garment.objects.create(order=order, **garment_data)
-            for alteration in alterations:
-                AlterationItem.objects.create(garment=garment, **alteration)
-        StatusEvent.objects.create(order=order, from_status="", to_status=Order.Status.PLACED, changed_by=order.customer, note="Order placed")
-        return order
 
 
 class OtpRequestSerializer(serializers.Serializer):
@@ -140,3 +134,8 @@ class NotificationDeliverySerializer(serializers.Serializer):
     state = serializers.ChoiceField(choices=("sent", "failed"))
     provider_message_id = serializers.CharField(required=False, allow_blank=True)
     failure_reason = serializers.CharField(required=False, allow_blank=True)
+
+
+class BetaSessionSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True, trim_whitespace=False)

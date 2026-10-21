@@ -11,12 +11,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import NotFound, PermissionDenied
-from .exceptions import InvalidStatusTransition
+from .exceptions import InvalidStatusTransition, ProviderUnavailable
 from rest_framework.response import Response
 from .models import Address, DeviceToken, NotificationJob, OtpChallenge, Order, Service
 from .permissions import CanAccessOrder, IsOpsAdmin
-from .serializers import AddressSerializer, AssignmentSerializer, CreateOrderSerializer, DeviceTokenSerializer, NotificationDeliverySerializer, OrderSerializer, OtpRequestSerializer, OtpVerifySerializer, QuoteSerializer, ServiceSerializer, StatusChangeSerializer
-from .services import update_order_status
+from .serializers import AddressSerializer, AssignmentSerializer, CreateOrderSerializer, DeviceTokenSerializer, NotificationDeliverySerializer, OrderSerializer, OtpRequestSerializer, OtpVerifySerializer, QuoteSerializer, ServiceSerializer, StatusChangeSerializer, BetaSessionSerializer
+from .services import update_order_status, assign_order, VALID_TRANSITIONS
 
 
 class AddressViewSet(viewsets.ModelViewSet):
@@ -34,6 +34,7 @@ class AddressViewSet(viewsets.ModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
+    http_method_names = ["get", "post", "head", "options"]
     serializer_class = OrderSerializer
     permission_classes = (IsAuthenticated, CanAccessOrder)
     filterset_fields = ("status",)
@@ -56,7 +57,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
-        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+        return Response(OrderSerializer(order).data, status=status.HTTP_200_OK if getattr(order, "_replayed", False) else status.HTTP_201_CREATED)
 
     @extend_schema(request=StatusChangeSerializer, responses=OrderSerializer)
     @action(detail=True, methods=["post"])
@@ -85,10 +86,13 @@ class OrderViewSet(viewsets.ModelViewSet):
             values["logistics_partner"] = serializer.validated_data["logistics_partner_id"]
         if "vendor_id" in serializer.validated_data:
             values["vendor"] = serializer.validated_data["vendor_id"]
-        for field, value in values.items():
-            setattr(order, field, value)
-        if values:
-            order.save(update_fields=[*values.keys(), "updated_at"])
+        if not values:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"assignment": ["Choose a logistics partner or vendor."]})
+        try:
+            assign_order(order=order, actor=request.user, **values)
+        except ValueError as exc:
+            raise InvalidStatusTransition(str(exc)) from exc
         return Response(OrderSerializer(order).data)
 
 
@@ -134,6 +138,8 @@ class OtpRequestView(APIView):
         serializer = OtpRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"]
+        if settings.OTP_PROVIDER != "console" or not settings.DEBUG:
+            raise ProviderUnavailable()
         recent = OtpChallenge.objects.filter(phone=phone, created_at__gte=timezone.now() - timedelta(minutes=1)).count()
         if recent >= 3:
             return Response({"code": "otp_rate_limited", "message": "Try again in a minute.", "fields": {}}, status=status.HTTP_429_TOO_MANY_REQUESTS)
@@ -190,3 +196,60 @@ class QuoteView(APIView):
                 lines.append({"service_code": service.code, "service_name": service.name, "quantity": quantity, "price_paise": price})
                 total += price
         return Response({"line_items": lines, "subtotal_paise": total, "delivery_fee_paise": 0, "discount_paise": 0, "total_paise": total, "currency": "INR"})
+
+
+@extend_schema(request=BetaSessionSerializer, responses={200: OpenApiTypes.OBJECT})
+class BetaSessionView(APIView):
+    """Password sign-in for explicitly provisioned test accounts, never production."""
+    authentication_classes = ()
+    permission_classes = ()
+    from rest_framework.throttling import ScopedRateThrottle
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = "beta_login"
+
+    def get_authenticate_header(self, request):
+        return 'Bearer realm="api"'
+
+    def post(self, request):
+        from django.contrib.auth import authenticate
+        from rest_framework.exceptions import AuthenticationFailed
+        from .serializers import BetaSessionSerializer
+        if not settings.BETA_AUTH_ENABLED or settings.STITCHCORE_ENV != "beta":
+            raise NotFound()
+        serializer = BetaSessionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = authenticate(request=request, **serializer.validated_data)
+        if not user or user.username not in ("beta-customer", "beta-admin"):
+            raise AuthenticationFailed("The test account details are incorrect.")
+        refresh = RefreshToken.for_user(user)
+        return Response({"access": str(refresh.access_token), "refresh": str(refresh),
+                         "user": {"role": user.role, "name": user.get_full_name()}})
+
+
+@extend_schema(responses={200: OpenApiTypes.OBJECT})
+class AuthConfigurationView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request):
+        return Response({"beta_sign_in": settings.BETA_AUTH_ENABLED and settings.STITCHCORE_ENV == "beta"})
+
+
+@extend_schema(responses={200: OpenApiTypes.OBJECT})
+class CurrentUserView(APIView):
+    def get(self, request):
+        return Response({"id": request.user.pk, "name": request.user.get_full_name(),
+                         "role": "admin" if request.user.is_ops_admin else request.user.role})
+
+
+@extend_schema(responses={200: OpenApiTypes.OBJECT})
+class OperationsOptionsView(APIView):
+    permission_classes = (IsOpsAdmin,)
+
+    def get(self, request):
+        from .models import User, Vendor
+        return Response({
+            "logistics_partners": list(User.objects.filter(role="logistics", is_active=True).values("id", "username", "first_name")),
+            "vendors": list(Vendor.objects.filter(active=True).values("id", "name")),
+            "transitions": {key: sorted(value) for key, value in VALID_TRANSITIONS.items()},
+        })

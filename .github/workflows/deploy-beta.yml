@@ -1,7 +1,17 @@
 name: Deploy beta
 on:
-  push: { branches: [main] }
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      initialize:
+        description: First deployment only; starts with zero service tasks for migration
+        type: boolean
+        default: false
 permissions: { contents: read, id-token: write }
+concurrency:
+  group: deploy-beta
+  cancel-in-progress: false
 jobs:
   deploy:
     environment: beta
@@ -12,12 +22,20 @@ jobs:
         with: { python-version: "3.12" }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - uses: aws-actions/configure-aws-credentials@v4
-        with: { role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}, aws-region: ap-south-1 }
       - run: pip install -r requirements-prod.txt
       - run: python manage.py test
+      - working-directory: frontend/web
+        run: npm ci && npm run typecheck
       - working-directory: infra/cdk
-        run: npm install && npx cdk deploy --all --require-approval never -c env=beta
-      - name: Integration tests
-        run: echo "Run tests/integration against the API URL emitted by CDK after configuring beta secrets."
-
+        run: npm ci && npm run build && npm test
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}, aws-region: ap-southeast-2 }
+      - name: Deploy, migrate, wait, and smoke-test
+        env:
+          INITIALIZE: ${{ inputs.initialize }}
+        run: |
+          if [ "$INITIALIZE" = "true" ]; then
+            python scripts/deploy_beta.py --initialize
+          else
+            python scripts/deploy_beta.py
+          fi

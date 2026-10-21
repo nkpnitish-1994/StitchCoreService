@@ -11,7 +11,7 @@ import urllib.request
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 API_BASE_URL = os.environ["INTERNAL_API_BASE_URL"].rstrip("/")
-INTERNAL_SECRET = os.environ["INTERNAL_NOTIFICATION_SECRET"]
+INTERNAL_SECRET = os.environ.get("INTERNAL_NOTIFICATION_SECRET", "")
 
 
 def handler(event, context):
@@ -30,11 +30,16 @@ def handler(event, context):
 
 def deliver(job):
     """Provider adapter boundary. Implement after choosing Meta/BSP and FCM credentials."""
-    logger.info("Delivering %s notification %s", job["channel"], job["notification_job_id"])
-    return f"pending-provider-{job['notification_job_id']}"
+    raise NotImplementedError("Notification providers have not been configured.")
 
 
 def report(job_id, state, **data):
+    global INTERNAL_SECRET
+    if not INTERNAL_SECRET:
+        import boto3
+        INTERNAL_SECRET = boto3.client("secretsmanager").get_secret_value(
+            SecretId=os.environ["INTERNAL_NOTIFICATION_SECRET_ARN"]
+        )["SecretString"]
     body = json.dumps({"state": state, **data}).encode()
     request = urllib.request.Request(
         f"{API_BASE_URL}/api/v1/internal/notifications/{job_id}/delivery/",

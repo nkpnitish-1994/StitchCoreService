@@ -16,11 +16,16 @@ class GarmentInline(admin.TabularInline):
 class StatusEventInline(admin.TabularInline):
     model = StatusEvent
     extra = 0
-    readonly_fields = ("created_at",)
+    readonly_fields = ("from_status", "to_status", "changed_by", "note", "proof_url", "created_at")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    readonly_fields = ("status", "logistics_partner", "vendor", "subtotal_paise", "delivery_fee_paise", "discount_paise", "idempotency_key")
     list_display = ("order_number", "customer", "status", "logistics_partner", "vendor", "created_at")
     list_filter = ("status", "vendor")
     search_fields = ("order_number", "customer__phone", "customer__username")
