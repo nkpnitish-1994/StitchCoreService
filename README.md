@@ -54,19 +54,19 @@ Do not deploy production until external provider secrets, domains, database dele
 .venv/bin/python manage.py runserver
 ```
 
-Visit `/admin/` for internal operations, or use `/api/` for the REST endpoints.
+Visit `/admin/` for internal operations, or use `/api/v1/` for the REST endpoints.
 
 ## Important endpoints
 
 ```text
-POST /api/addresses/
-GET  /api/addresses/
-POST /api/orders/
-GET  /api/orders/
-GET  /api/orders/{id}/
-POST /api/orders/{id}/status/
-POST /api/orders/{id}/assign/       (admin only)
-POST /api/device-tokens/
+POST /api/v1/addresses/
+GET  /api/v1/addresses/
+POST /api/v1/orders/
+GET  /api/v1/orders/
+GET  /api/v1/orders/{id}/
+POST /api/v1/orders/{id}/status/
+POST /api/v1/orders/{id}/assign/       (admin only)
+POST /api/v1/device-tokens/
 ```
 
 ## Notification path
@@ -83,3 +83,11 @@ Set `DEBUG=false`, `DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, `DB_ENGINE`, `DB_NAME`,
 `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `AWS_REGION`, `NOTIFICATION_QUEUE_URL`, and
 `INTERNAL_NOTIFICATION_SECRET`. Use `DB_ENGINE=django.db.backends.postgresql` for
 RDS PostgreSQL; SQLite is only for local development.
+
+## API contract
+
+Run `make openapi` to regenerate and validate `packages/contracts/openapi.yaml`.
+The live schema is available at `/api/schema/` and Swagger UI at `/api/docs/`.
+Business endpoints use `/api/v1/`; unversioned business routes are not supported.
+Errors use `{"code": "...", "message": "...", "fields": {}}`; validation errors
+include field details. Keep the generated contract committed with API changes.

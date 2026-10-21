@@ -2,6 +2,7 @@ import secrets
 from datetime import timedelta
 from django.conf import settings
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -9,6 +10,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import NotFound, PermissionDenied
+from .exceptions import InvalidStatusTransition
 from rest_framework.response import Response
 from .models import Address, DeviceToken, NotificationJob, OtpChallenge, Order, Service
 from .permissions import CanAccessOrder, IsOpsAdmin
@@ -48,25 +51,30 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         return CreateOrderSerializer if self.action == "create" else OrderSerializer
 
+    @extend_schema(request=CreateOrderSerializer, responses={201: OrderSerializer})
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         order = serializer.save()
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=StatusChangeSerializer, responses=OrderSerializer)
     @action(detail=True, methods=["post"])
     def status(self, request, pk=None):
         order = self.get_object()
         serializer = StatusChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if not (request.user.is_ops_admin or request.user.role == "logistics"):
-            return Response({"detail": "Only operations staff can update an order."}, status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied("Only operations staff can update an order.")
         try:
             update_order_status(order=order, actor=request.user, to_status=serializer.validated_data["status"], note=serializer.validated_data.get("note", ""), proof_url=serializer.validated_data.get("proof_url", ""))
-        except (ValueError, PermissionError) as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionError as exc:
+            raise PermissionDenied(str(exc)) from exc
+        except ValueError as exc:
+            raise InvalidStatusTransition(str(exc)) from exc
         return Response(OrderSerializer(order).data)
 
+    @extend_schema(request=AssignmentSerializer, responses=OrderSerializer)
     @action(detail=True, methods=["post"], permission_classes=[IsOpsAdmin])
     def assign(self, request, pk=None):
         order = self.get_object()
@@ -88,6 +96,7 @@ class DeviceTokenViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
     serializer_class = DeviceTokenSerializer
 
+    @extend_schema(request=DeviceTokenSerializer, responses={204: None})
     def create(self, request):
         serializer = DeviceTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -101,10 +110,11 @@ class InternalNotificationDeliveryViewSet(viewsets.ViewSet):
     permission_classes = ()
     serializer_class = NotificationDeliverySerializer
 
+    @extend_schema(request=NotificationDeliverySerializer, responses={204: None})
     def create(self, request, job_id=None):
         if not settings.INTERNAL_NOTIFICATION_SECRET or request.headers.get("X-Internal-Secret") != settings.INTERNAL_NOTIFICATION_SECRET:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        job = NotificationJob.objects.get(pk=job_id)
+            raise NotFound()
+        job = get_object_or_404(NotificationJob, pk=job_id)
         serializer = NotificationDeliverySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         state = serializer.validated_data["state"]

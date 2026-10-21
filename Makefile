@@ -26,7 +26,7 @@ typecheck:
 	@echo "Add mypy/pyright after domain package split."
 
 openapi:
-	.venv/bin/python manage.py spectacular --file packages/contracts/openapi.yaml --validate
+	.venv/bin/python manage.py spectacular --file packages/contracts/openapi.yaml --validate --fail-on-warn
 
 run:
 	.venv/bin/python manage.py runserver

@@ -662,7 +662,7 @@ Never run seeded test data, destructive cleanup, or real WhatsApp/SMS notificati
 - [x] Implement initial domain models for users, address, vendor, order, garment, alterations, status events, device tokens, and notification jobs.
 - [x] Implement early order creation, assignment, status workflow, Django Admin, SQS publisher skeleton, Lambda skeleton, and basic test.
 - [x] Create `AGENTS.md` and this implementation plan.
-- [ ] Move API routes to `/api/v1/` and generate OpenAPI contract.
+- [x] Move API routes to `/api/v1/` and generate OpenAPI contract. Verified versioned routes, standardized errors, corrected action schemas, Lambda callback URL, and committed-schema consistency with 11 backend tests; OpenAPI validates without warnings.
 - [ ] Add local Docker Compose for Django, PostgreSQL, and test services.
 - [ ] Add environment configuration template and contributor setup instructions.
 

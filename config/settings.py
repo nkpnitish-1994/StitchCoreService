@@ -71,9 +71,15 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "EXCEPTION_HANDLER": "operations.exceptions.api_exception_handler",
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
-SPECTACULAR_SETTINGS = {"TITLE": "StitchCore API", "VERSION": "v1", "SERVE_INCLUDE_SCHEMA": False}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "StitchCore API",
+    "VERSION": "v1",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {"OrderStatusEnum": "operations.schema.ORDER_STATUS_CHOICES"},
+}
 SIMPLE_JWT = {"ACCESS_TOKEN_LIFETIME": timedelta(minutes=30), "REFRESH_TOKEN_LIFETIME": timedelta(days=30), "ROTATE_REFRESH_TOKENS": True}
 
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")

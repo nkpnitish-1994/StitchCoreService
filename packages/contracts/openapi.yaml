@@ -242,12 +242,8 @@ paths:
       - cookieAuth: []
       - basicAuth: []
       responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeviceToken'
-          description: ''
+        '204':
+          description: No response body
   /api/v1/internal/notifications/{job_id}/delivery/:
     post:
       operationId: v1_internal_notifications_delivery_create
@@ -275,12 +271,8 @@ paths:
               $ref: '#/components/schemas/NotificationDelivery'
         required: true
       responses:
-        '201':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NotificationDelivery'
-          description: ''
+        '204':
+          description: No response body
   /api/v1/orders/:
     get:
       operationId: v1_orders_list
@@ -355,7 +347,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateOrder'
+                $ref: '#/components/schemas/Order'
           description: ''
   /api/v1/orders/{id}/:
     get:
@@ -486,14 +478,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/Assignment'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/Assignment'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Order'
-        required: true
+              $ref: '#/components/schemas/Assignment'
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -522,13 +513,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/StatusChange'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/StatusChange'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Order'
+              $ref: '#/components/schemas/StatusChange'
         required: true
       security:
       - jwtAuth: []
@@ -636,6 +627,13 @@ components:
       - approved_price_paise
       - id
       - service_code
+    Assignment:
+      type: object
+      properties:
+        logistics_partner_id:
+          type: integer
+        vendor_id:
+          type: integer
     CreateOrder:
       type: object
       properties:
@@ -745,7 +743,7 @@ components:
           readOnly: true
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusEnum'
+          - $ref: '#/components/schemas/OrderStatusEnum'
           readOnly: true
         pickup_window:
           type: string
@@ -807,6 +805,34 @@ components:
       - total_paise
       - updated_at
       - vendor_id
+    OrderStatusEnum:
+      enum:
+      - placed
+      - pickup_assigned
+      - picked_up
+      - at_vendor
+      - alteration_complete
+      - ready_for_delivery
+      - out_for_delivery
+      - delivered
+      - pickup_failed
+      - customer_approval_needed
+      - rework_required
+      - cancelled
+      type: string
+      description: |-
+        * `placed` - Placed
+        * `pickup_assigned` - Pickup assigned
+        * `picked_up` - Picked up
+        * `at_vendor` - At vendor
+        * `alteration_complete` - Alteration complete
+        * `ready_for_delivery` - Ready for delivery
+        * `out_for_delivery` - Out for delivery
+        * `delivered` - Delivered
+        * `pickup_failed` - Pickup failed
+        * `customer_approval_needed` - Customer approval needed
+        * `rework_required` - Rework required
+        * `cancelled` - Cancelled
     OtpRequest:
       type: object
       properties:
@@ -879,7 +905,7 @@ components:
           readOnly: true
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusEnum'
+          - $ref: '#/components/schemas/OrderStatusEnum'
           readOnly: true
         pickup_window:
           type: string
@@ -983,34 +1009,22 @@ components:
       description: |-
         * `sent` - sent
         * `failed` - failed
-    StatusEnum:
-      enum:
-      - placed
-      - pickup_assigned
-      - picked_up
-      - at_vendor
-      - alteration_complete
-      - ready_for_delivery
-      - out_for_delivery
-      - delivered
-      - pickup_failed
-      - customer_approval_needed
-      - rework_required
-      - cancelled
-      type: string
-      description: |-
-        * `placed` - Placed
-        * `pickup_assigned` - Pickup assigned
-        * `picked_up` - Picked up
-        * `at_vendor` - At vendor
-        * `alteration_complete` - Alteration complete
-        * `ready_for_delivery` - Ready for delivery
-        * `out_for_delivery` - Out for delivery
-        * `delivered` - Delivered
-        * `pickup_failed` - Pickup failed
-        * `customer_approval_needed` - Customer approval needed
-        * `rework_required` - Rework required
-        * `cancelled` - Cancelled
+    StatusChange:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/OrderStatusEnum'
+        note:
+          type: string
+          maxLength: 1000
+        proof_url:
+          oneOf:
+          - type: string
+            format: uri
+          - type: string
+            maxLength: 0
+      required:
+      - status
     StatusEvent:
       type: object
       properties:
@@ -1021,7 +1035,7 @@ components:
           type: string
           maxLength: 32
         to_status:
-          $ref: '#/components/schemas/ToStatusEnum'
+          $ref: '#/components/schemas/OrderStatusEnum'
         changed_by_name:
           type: string
           readOnly: true
@@ -1043,34 +1057,6 @@ components:
       - created_at
       - id
       - to_status
-    ToStatusEnum:
-      enum:
-      - placed
-      - pickup_assigned
-      - picked_up
-      - at_vendor
-      - alteration_complete
-      - ready_for_delivery
-      - out_for_delivery
-      - delivered
-      - pickup_failed
-      - customer_approval_needed
-      - rework_required
-      - cancelled
-      type: string
-      description: |-
-        * `placed` - Placed
-        * `pickup_assigned` - Pickup assigned
-        * `picked_up` - Picked up
-        * `at_vendor` - At vendor
-        * `alteration_complete` - Alteration complete
-        * `ready_for_delivery` - Ready for delivery
-        * `out_for_delivery` - Out for delivery
-        * `delivered` - Delivered
-        * `pickup_failed` - Pickup failed
-        * `customer_approval_needed` - Customer approval needed
-        * `rework_required` - Rework required
-        * `cancelled` - Cancelled
   securitySchemes:
     basicAuth:
       type: http

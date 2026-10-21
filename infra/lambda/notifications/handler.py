@@ -37,7 +37,7 @@ def deliver(job):
 def report(job_id, state, **data):
     body = json.dumps({"state": state, **data}).encode()
     request = urllib.request.Request(
-        f"{API_BASE_URL}/api/internal/notifications/{job_id}/delivery/",
+        f"{API_BASE_URL}/api/v1/internal/notifications/{job_id}/delivery/",
         data=body,
         headers={"Content-Type": "application/json", "X-Internal-Secret": INTERNAL_SECRET},
         method="POST",

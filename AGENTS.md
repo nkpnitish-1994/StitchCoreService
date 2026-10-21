@@ -205,12 +205,12 @@ All prices are stored in paise, not floating-point rupees. Measurement data is s
 Current route families:
 
 ```text
-/api/addresses/
-/api/orders/
-/api/orders/{id}/status/
-/api/orders/{id}/assign/
-/api/device-tokens/
-/api/internal/notifications/{job_id}/delivery/
+/api/v1/addresses/
+/api/v1/orders/
+/api/v1/orders/{id}/status/
+/api/v1/orders/{id}/assign/
+/api/v1/device-tokens/
+/api/v1/internal/notifications/{job_id}/delivery/
 ```
 
 The internal notification callback is not a public client API. Protect it with an internal secret (and, in production, network restrictions/IAM where appropriate).
