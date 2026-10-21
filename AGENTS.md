@@ -1,5 +1,7 @@
 # StitchCoreService — Product and Engineering Context
 
+> `task.md` is the canonical implementation plan and execution checklist. Before implementing a feature, read the relevant sections of `task.md`; this file provides durable context and guardrails.
+
 ## Purpose
 
 StitchCore is a convenience platform for clothing alterations. Customers submit clothes that do not fit well, describe the alteration and measurements, arrange collection, and receive the altered garments back. The service manages pickup, delivery to an alteration vendor, return pickup, and final delivery.
@@ -252,4 +254,3 @@ Prefer one shared API contract and design system. Do not create three separate b
 - AI measurement extraction.
 - Complex dynamic pricing.
 - Multi-city/multi-vendor operational automation.
-

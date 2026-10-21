@@ -751,3 +751,687 @@ These do not block local backend work, but they block production integration:
 10. Customer-facing brand, domain, and design direction.
 11. Beta/production AWS account separation and deployment approvers.
 
+## 16. Low-level execution blueprint for new development sessions
+
+This section is intentionally prescriptive. A new Codex session should use it as the implementation handoff and should not invent a different architecture without recording an ADR and requesting approval.
+
+### 16.1 First actions for a new coding session
+
+Run these commands from the repository root before changing code:
+
+```bash
+pwd
+git status --short --branch
+git log --oneline -5
+sed -n '1,240p' AGENTS.md
+sed -n '1,260p' task.md
+find . -maxdepth 3 -type f -not -path './.venv/*' | sort
+```
+
+Then:
+
+1. Identify the first unchecked item in the active roadmap phase.
+2. Confirm no existing user changes overlap it; preserve unrelated changes.
+3. Implement only one cohesive vertical slice at a time.
+4. Add/adjust migrations, unit tests, API tests, documentation, and environment configuration in the same change.
+5. Run the required verification commands before committing.
+6. Update the matching checkbox in this file only after the feature is genuinely verified.
+
+Do not try to build all roles, clients, providers, and infrastructure in one change.
+
+### 16.2 Current repository baseline
+
+The existing root-level Django project is an early foundation. It currently contains `config/`, `operations/`, `infra/lambda/notifications/`, `Dockerfile`, and requirements files. It uses SQLite locally and has an initial custom user/order workflow.
+
+Treat the current implementation as a scaffold, not a finished API contract. Preserve valid work, but refactor it into the target layout below incrementally. Do not break existing migrations or silently change identifiers/status values.
+
+### 16.3 Target repository structure
+
+Move to this structure through small compatible changes; do not perform a destructive mass move during feature work.
+
+```text
+.
+├── AGENTS.md
+├── task.md
+├── README.md
+├── .env.example
+├── compose.yaml
+├── Makefile
+├── backend/
+│   ├── manage.py
+│   ├── config/
+│   │   ├── settings/
+│   │   │   ├── base.py
+│   │   │   ├── local.py
+│   │   │   ├── beta.py
+│   │   │   └── production.py
+│   │   ├── urls.py
+│   │   └── celery.py                  # Do not create for MVP
+│   ├── apps/
+│   │   ├── accounts/
+│   │   ├── catalog/
+│   │   ├── orders/
+│   │   ├── fulfillment/
+│   │   ├── payments/
+│   │   ├── media/
+│   │   ├── notifications/
+│   │   └── support/
+│   ├── tests/
+│   └── pyproject.toml
+├── frontend/
+│   ├── web/                           # Next.js app
+│   └── mobile/                        # Expo / React Native app
+├── packages/
+│   └── contracts/                     # OpenAPI schema + generated TS client
+├── infra/
+│   ├── cdk/
+│   └── lambda/notifications/
+├── scripts/
+│   ├── seed_beta.py
+│   └── wait_for_http.py
+├── tests/
+│   └── integration/
+└── .github/workflows/
+```
+
+The migration from the current root-level Django project can be deferred until the core API is stable. If deferring it, retain the same domain boundaries in code modules.
+
+### 16.4 Local development environment
+
+#### Required developer tools
+
+```text
+Python 3.12+ (pin a tested version in CI)
+Node.js 22+ and pnpm
+Docker Desktop / Docker Engine
+AWS CLI v2
+AWS CDK v2
+GitHub CLI (optional, for PRs)
+```
+
+#### Required local services
+
+| Service | Local implementation | Production implementation |
+|---|---|---|
+| Database | PostgreSQL container | RDS PostgreSQL |
+| Object storage | MinIO or mocked S3 client | S3 |
+| Queue | LocalStack SQS or mocked publisher | SQS |
+| Notifications | Fake adapter / request recorder | Lambda + provider APIs |
+| Payment | Razorpay test mode/mock gateway | Razorpay live mode |
+
+#### `.env.example` contract
+
+```dotenv
+DJANGO_SETTINGS_MODULE=config.settings.local
+DJANGO_SECRET_KEY=replace-me
+DJANGO_DEBUG=true
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+
+DATABASE_URL=postgresql://stitchcore:stitchcore@localhost:5432/stitchcore
+REDIS_URL=                         # intentionally unused by MVP
+
+AWS_REGION=ap-south-1
+AWS_S3_MEDIA_BUCKET=stitchcore-local-media
+AWS_SQS_NOTIFICATION_QUEUE_URL=
+AWS_ENDPOINT_URL=                  # LocalStack only; blank in AWS
+
+INTERNAL_NOTIFICATION_SECRET=replace-me
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
+RAZORPAY_WEBHOOK_SECRET=
+WHATSAPP_PROVIDER=
+WHATSAPP_API_BASE_URL=
+WHATSAPP_ACCESS_TOKEN=
+FCM_SERVICE_ACCOUNT_JSON=
+SMS_PROVIDER=
+OTP_SECRET=replace-me
+```
+
+Never add real values to `.env.example`, checked-in files, test snapshots, or GitHub Actions logs.
+
+#### Standard commands to add to `Makefile`
+
+```make
+bootstrap:          ## Install Python/Node dependencies
+up:                 ## Start PostgreSQL and local dependencies
+down:               ## Stop local dependencies
+migrate:            ## Apply Django migrations
+makemigrations:     ## Create Django migrations
+seed-beta:          ## Create deterministic beta users/catalog/orders
+test:               ## Run all backend unit/API tests
+test-integration:   ## Run black-box integration suite
+lint:               ## Run Python/TS lint and formatting checks
+typecheck:          ## Run Python and TS type checks
+openapi:            ## Generate/validate OpenAPI schema and TS client
+cdk-synth:          ## Synthesize selected CDK environment
+```
+
+### 16.5 Backend coding rules
+
+#### Layering
+
+```text
+HTTP view/controller
+  → serializer/request DTO validation
+  → domain service function
+  → Django ORM transaction
+  → domain event / notification job
+  → external publisher/adapter after transaction commit
+```
+
+- Views must not contain pricing rules, authorization policy beyond invoking permissions, or state-machine logic.
+- Serializers validate input shape and simple field constraints; domain services validate business invariants.
+- Domain services must be individually unit-testable.
+- Use `transaction.atomic()` for multi-record operations.
+- Use `transaction.on_commit()` before publishing SQS work. Never publish while a transaction may still roll back.
+- Adapters for Razorpay, S3, WhatsApp, FCM, SMS, SQS, and Lambda callbacks must be behind interfaces that can be faked in tests.
+
+#### Error response contract
+
+Use one predictable error shape:
+
+```json
+{
+  "code": "invalid_status_transition",
+  "message": "This order cannot be moved from picked_up to delivered.",
+  "fields": {}
+}
+```
+
+Validation errors may include `fields` keyed by input field. Do not return framework tracebacks or provider responses to clients.
+
+#### ID and timestamp policy
+
+- Internal primary keys: UUID.
+- Customer order number: immutable human-readable string, for example `ORD-20261021-A1B2C3`.
+- Garment code: immutable unique string, for example `GRM-8F2K9Q`.
+- Store timestamps in UTC; display in `Asia/Kolkata` in Indian customer/operations interfaces.
+- Use soft cancellation/status rather than deleting orders, payments, or status events.
+
+### 16.6 Model-level details and constraints
+
+#### User and OTP
+
+```text
+User
+  id UUID PK
+  phone_e164 unique, nullable until verified only if required
+  full_name
+  role enum(customer, admin, logistics, vendor)
+  is_active
+  created_at, updated_at
+
+OtpChallenge
+  id UUID PK
+  phone_e164
+  purpose enum(login, phone_change)
+  code_hash
+  expires_at
+  attempt_count
+  consumed_at nullable
+  requested_ip_hash nullable
+  created_at
+```
+
+Rules:
+
+- Store phone numbers in E.164 form such as `+919876543210`.
+- Hash OTP values; never store plaintext codes.
+- Rate-limit requests by phone/IP/device and lock after a configured failed-attempt threshold.
+- OTP verification is single-use, time-limited, and idempotent once a session is issued.
+
+#### Order price snapshots
+
+`ServicePrice` is mutable future configuration; an `AlterationItem` quote must remain an immutable snapshot after checkout.
+
+```text
+AlterationItem
+  service_code_snapshot
+  service_name_snapshot
+  measurement_schema_version
+  measurement_payload JSONB
+  quoted_price_paise
+  approved_price_paise nullable
+  customer_instruction
+```
+
+Order totals must be calculated as:
+
+```text
+subtotal_paise = sum(final price of every alteration item × garment quantity)
+total_paise = subtotal_paise + delivery_fee_paise - discount_paise
+```
+
+Never trust `subtotal_paise`, `total_paise`, or alteration price received from a client.
+
+#### Order status transitions
+
+Use an explicit transition map, tested as a matrix. Define allowed actors for every edge.
+
+| From | To | Allowed actor |
+|---|---|---|
+| placed | pickup_assigned | admin |
+| placed | cancelled | customer/admin |
+| pickup_assigned | picked_up | assigned logistics/admin |
+| pickup_assigned | pickup_failed | assigned logistics/admin |
+| pickup_assigned | cancelled | admin |
+| pickup_failed | pickup_assigned | admin |
+| picked_up | at_vendor | assigned logistics/admin |
+| at_vendor | alteration_complete | admin, later assigned vendor |
+| at_vendor | customer_approval_needed | admin |
+| at_vendor | rework_required | admin |
+| customer_approval_needed | at_vendor | admin after approval |
+| alteration_complete | ready_for_delivery | admin/assigned logistics |
+| ready_for_delivery | out_for_delivery | assigned logistics/admin |
+| out_for_delivery | delivered | assigned logistics/admin |
+| delivered | rework_required | customer request + admin decision |
+
+Do not expose a generic unrestricted `PATCH order.status` endpoint to customer or logistics clients.
+
+#### Indexes and database constraints
+
+Add database indexes deliberately:
+
+```text
+Order(customer_id, created_at DESC)
+Order(logistics_partner_id, status, pickup_window)
+Order(vendor_id, status)
+Order(status, expected_delivery_date)
+StatusEvent(order_id, created_at)
+NotificationJob(state, created_at)
+Payment(order_id, provider_payment_id unique)
+Garment(qr_code unique)
+```
+
+Add `CheckConstraint`s for non-negative monetary values and valid quantity. Add uniqueness/idempotency constraints for webhooks and payment provider IDs.
+
+### 16.7 API payloads and endpoint implementation order
+
+#### Order quote request
+
+```http
+POST /api/v1/orders/quote
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "address_id": "uuid",
+  "pickup_slot_id": "uuid",
+  "garments": [
+    {
+      "garment_type": "trousers",
+      "quantity": 1,
+      "colour": "navy",
+      "alterations": [
+        {
+          "service_code": "trousers.reduce_waist",
+          "measurement": {
+            "schema_version": 1,
+            "measurement_mode": "alteration_delta",
+            "unit": "in",
+            "values": {"waist_reduce_by": 1}
+          },
+          "customer_instruction": "Keep the original waistband finish."
+        }
+      ]
+    }
+  ]
+}
+```
+
+Quote response must return service validation results, line-item prices, fees, total, applicable terms, and a short-lived quote identifier. The server recomputes quote values when an order is created.
+
+#### Create order request
+
+```http
+POST /api/v1/orders
+Idempotency-Key: <client-generated UUID>
+Authorization: Bearer <access-token>
+```
+
+The endpoint accepts an approved quote ID and same immutable request content. Persist the idempotency key per customer. A replay returns the original order rather than creating a duplicate.
+
+#### Status action request
+
+```http
+POST /api/v1/logistics/orders/{order_id}/pickup-confirmation
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "garments": [
+    {"garment_id": "uuid", "qr_code": "GRM-8F2K9Q", "condition_note": "No visible defects"}
+  ],
+  "proof_media_ids": ["uuid"],
+  "note": "Collected from security desk"
+}
+```
+
+The domain service must confirm the requester is the assigned logistics partner, all listed garments belong to the order, all expected garments are accounted for, and the transition is allowed.
+
+#### API implementation sequence
+
+1. Version API routes and introduce standardized error handler.
+2. Implement account/OTP/session endpoints with fake provider in tests.
+3. Implement catalogue, price, serviceability, pickup slots, and quote endpoint.
+4. Implement idempotent customer order creation.
+5. Implement media presign/finalize workflow.
+6. Implement payment order/webhook.
+7. Implement assignment and state-specific operations endpoints.
+8. Implement notifications/outbox adapters and protected callback.
+9. Publish OpenAPI schema and generate TypeScript client.
+
+### 16.8 Payment implementation details
+
+Use a `Payment` state machine separate from fulfillment status:
+
+```text
+created → pending → paid
+                 ↘ failed
+paid → refund_pending → refunded | refund_failed
+```
+
+Required mechanics:
+
+- Backend creates Razorpay order with the server-calculated total and an internal order reference in notes.
+- Client receives only Razorpay public checkout configuration/order ID.
+- Treat only a signature-verified webhook as final payment authority.
+- Store provider IDs, event IDs, amount, currency, state, and raw payload reference/hash.
+- Deduplicate webhook events by provider event ID.
+- Never mark an order `placed`/payable twice because a client retries or webhook is delivered twice.
+- Implement payment/refund provider calls through `PaymentGateway` interface and `FakePaymentGateway` for tests.
+
+### 16.9 Media implementation details
+
+1. Client asks `POST /media/upload-url` with entity purpose, file name, MIME type, byte size, and checksum.
+2. Backend authorizes entity ownership/access and returns a single-purpose presigned S3 PUT URL plus media ID.
+3. Client uploads directly to S3.
+4. Client calls `POST /media/{id}/complete`.
+5. Backend verifies object metadata/head, persists final status, and links it to garment/order/proof.
+
+Rules:
+
+- Allowed formats: JPEG, PNG, HEIC only initially; configure max size/count.
+- Generate server-owned object keys; never accept arbitrary S3 key/path from clients.
+- Store checksum and uploader identity.
+- Serve through short-lived signed GET URLs.
+- Add malware scanning/event workflow only when launch risk/compliance requires it; do not claim it exists before then.
+
+### 16.10 Frontend implementation details
+
+#### Web technology
+
+```text
+Next.js App Router + TypeScript
+React Hook Form + Zod for form state/validation
+TanStack Query for API state/cache
+Generated API client from OpenAPI
+Tailwind or a documented component system
+Playwright for browser E2E tests
+```
+
+#### Customer route map
+
+```text
+/                         landing/serviceability entry
+/login                    phone OTP
+/order/new                guarded multi-step order wizard
+/order/new/address
+/order/new/garments
+/order/new/measurements
+/order/new/review
+/checkout/{orderId}
+/orders
+/orders/{orderNumber}
+/measurements
+/support
+```
+
+The order wizard must preserve draft state locally and server-side only after the customer chooses to save a draft. It must not create duplicate orders on browser refresh; use quote/order idempotency identifiers.
+
+#### Admin route map
+
+```text
+/admin/orders
+/admin/orders/{orderNumber}
+/admin/exceptions
+/admin/catalog/services
+/admin/catalog/prices
+/admin/vendors
+/admin/logistics-partners
+/admin/reports
+```
+
+#### Logistics route map (React Native)
+
+```text
+/(logistics)/today
+/(logistics)/task/{orderId}
+/(logistics)/scan
+/(logistics)/proof
+/(logistics)/failure
+```
+
+The client only renders permitted actions, but the backend remains the authority for all permissions and transitions.
+
+### 16.11 CDK package implementation details
+
+#### CDK file structure
+
+```text
+infra/cdk/
+  bin/stitchcore.ts
+  lib/config/environment.ts
+  lib/stacks/foundation-stack.ts
+  lib/stacks/data-stack.ts
+  lib/stacks/compute-stack.ts
+  lib/stacks/messaging-stack.ts
+  lib/stacks/observability-stack.ts
+  lib/constructs/database.ts
+  lib/constructs/api-service.ts
+  lib/constructs/notification-pipeline.ts
+  test/*.test.ts
+  cdk.json
+  package.json
+```
+
+#### Environment configuration type
+
+```ts
+export type EnvironmentConfig = {
+  name: "beta" | "production";
+  account: string;
+  region: "ap-south-1";
+  domainName: string;
+  apiDesiredCount: number;
+  apiCpu: number;
+  apiMemoryMiB: number;
+  deletionProtection: boolean;
+  backupRetentionDays: number;
+  logRetentionDays: number;
+};
+```
+
+Keep account IDs, domain values, and provider secrets out of source. Load non-secret deployment parameters through GitHub environment variables or CDK context files ignored by Git where necessary.
+
+#### Required IAM permissions
+
+ECS task role must be scoped to:
+
+- Read only named Secrets Manager secrets.
+- Read/write only the named media bucket/prefixes.
+- Send only to notification queue.
+- Write only its configured CloudWatch Logs group.
+
+Notification Lambda role must be scoped to:
+
+- Receive/delete from the named SQS queue.
+- Read only its provider/API secrets.
+- Invoke internal API through its intended network endpoint.
+- Write to its log group.
+
+Do not use administrator permissions for runtime ECS/Lambda roles.
+
+### 16.12 GitHub Actions implementation details
+
+#### Required workflows
+
+```text
+.github/workflows/ci.yml
+.github/workflows/deploy-beta.yml
+.github/workflows/deploy-production.yml
+.github/workflows/nightly-security.yml
+```
+
+#### `ci.yml` jobs
+
+```text
+changed-files
+backend-lint
+backend-test
+backend-migration-check
+frontend-web-lint-test
+frontend-mobile-lint-test
+openapi-validate
+docker-build
+cdk-synth-beta
+cdk-synth-production
+security-secret-dependency-scan
+```
+
+Each job pins action versions, uses dependency cache keyed by lockfile, and uploads only non-sensitive test/coverage artifacts.
+
+#### AWS authentication
+
+Use GitHub Actions OIDC:
+
+```text
+GitHub environment (beta/production)
+  → configured OIDC trust policy restricted to repository + branch/environment
+  → IAM deployment role with CDK/ECR/ECS permissions appropriate to environment
+```
+
+No `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` secrets in GitHub Actions.
+
+#### Deployment workflow pseudo-steps
+
+```yaml
+- checkout exact commit SHA
+- setup Python and Node from locked versions
+- install locked dependencies
+- run tests/synth again
+- configure AWS credentials through OIDC
+- build and push ECR image with immutable SHA tag
+- cdk deploy target environment
+- run ECS migration task and wait for success
+- force/update ECS deployment and wait for stable service
+- run integration test suite against deployed API
+- publish deployment summary
+```
+
+Production workflow additionally uses GitHub Environment `production` with required reviewers and accepts a release SHA/tag that already passed beta.
+
+### 16.13 Integration test harness
+
+Use a separate black-box test package under `tests/integration/`.
+
+```text
+tests/integration/
+  pyproject.toml or package.json
+  config.py
+  clients/api_client.py
+  clients/razorpay_fake.py
+  clients/notification_recorder.py
+  fixtures.py
+  test_customer_order_journey.py
+  test_fulfillment_journey.py
+  test_authorization.py
+  test_payment_webhook.py
+  test_notification_retry.py
+  test_media_upload.py
+```
+
+Required environment variables:
+
+```dotenv
+TEST_API_BASE_URL=https://api.beta.example.com
+TEST_ADMIN_TOKEN=
+TEST_CUSTOMER_PHONE=
+TEST_LOGISTICS_PHONE=
+TEST_VENDOR_PHONE=
+TEST_RAZORPAY_WEBHOOK_SECRET=
+```
+
+Rules:
+
+- Run destructive/seed/reset tests only against beta/local, never production.
+- Use an API client with explicit timeouts, retry only idempotent read/poll operations, and clear assertion messages.
+- Poll async notification state with bounded timeout rather than `sleep` alone.
+- Store random run IDs in test-created customer/order labels to allow safe cleanup.
+- Test SQS/Lambda adapters through provider mocks in CI and sandbox/test providers in beta.
+
+### 16.14 Required verification commands by change type
+
+| Change | Minimum verification |
+|---|---|
+| Django model/migration | `makemigrations --check`, migrate fresh DB, targeted tests, full backend test suite |
+| State machine/permission | Unit transition matrix + API unauthorized/authorized tests |
+| Payment/webhook | Signature/idempotency tests + fake-gateway integration test |
+| SQS/Lambda | Unit adapter test + queue retry/DLQ integration test |
+| Web UI | Type check, component tests, Playwright critical-flow test |
+| Mobile UI | Type check, unit test, device/emulator smoke test where available |
+| CDK | `cdk synth`, CDK assertions, `cdk diff` review |
+| CI/CD | Workflow lint/dry run where available; beta deployment smoke test |
+
+### 16.15 Work-item template
+
+Every implementation task/PR should be written in this form:
+
+```markdown
+## Objective
+One sentence describing the user/business outcome.
+
+## Scope
+- Included:
+- Explicitly excluded:
+
+## Files/modules expected to change
+-
+
+## API/data changes
+- Request/response:
+- Migration:
+- Permission rule:
+
+## Acceptance criteria
+- [ ]
+
+## Tests
+- [ ] Unit
+- [ ] API/integration
+- [ ] Manual QA if applicable
+
+## Rollout/rollback
+- Feature flag/configuration:
+- Migration compatibility:
+```
+
+### 16.16 First recommended implementation tickets
+
+Execute in this exact order unless product owner changes priority:
+
+1. **Developer environment:** Docker Compose, PostgreSQL, `.env.example`, Makefile, documented setup, CI Python test job.
+2. **API foundation:** `/api/v1`, standardized errors, OpenAPI generation, API version tests.
+3. **Authentication:** phone normalization, OTP challenge, fake OTP provider, access/refresh tokens, rate-limit tests.
+4. **Catalogue and measurements:** service catalogue, service-specific JSON schema validation, price/serviceability endpoints, quote service.
+5. **Idempotent order creation:** customer address authorization, quote snapshot, garment QR IDs, audit event, total calculation.
+6. **Operational fulfillment:** admin assignment, role-scoped task list, pickup/vendor/delivery confirmation endpoints, proof metadata.
+7. **Media:** S3 presign/finalize interfaces with fake/S3 adapters and media authorization tests.
+8. **Payments:** Razorpay gateway interface, payment order creation, verified webhook, payment state machine.
+9. **Notifications:** notification outbox, SQS publisher, Lambda adapter, mocks/retries/DLQ tests.
+10. **Customer web:** order wizard end-to-end against beta API.
+11. **CDK and beta:** deploy backend/data/messaging stack, run integration suite.
+12. **Admin/logistics apps:** after core beta workflow is validated.
+
