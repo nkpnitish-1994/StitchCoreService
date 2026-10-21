@@ -1,0 +1,2 @@
+{"expo":{"name":"StitchCore","slug":"stitchcore","scheme":"stitchcore","plugins":["expo-router","expo-camera","expo-secure-store"],"experiments":{"typedRoutes":true}}}
+

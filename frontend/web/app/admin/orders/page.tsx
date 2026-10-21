@@ -1,0 +1,1 @@
+export default function AdminOrders(){return <section><h1>Operations orders</h1><p>This protected route will use the admin order API to search, assign, and resolve order exceptions.</p><div className="card"><strong>Implementation note:</strong> Django Admin remains the initial operational interface until role-aware dashboard authentication is connected.</div></section>}

@@ -1,0 +1,5 @@
+"use client";
+import { useState } from "react";
+import { api, ApiError } from "../../lib/api";
+export default function Login() { const [phone,setPhone]=useState("+91"); const [code,setCode]=useState(""); const [sent,setSent]=useState(false); const [message,setMessage]=useState(""); async function submit(){try{if(!sent){await api("/auth/otp/request",{method:"POST",body:JSON.stringify({phone})});setSent(true);setMessage("OTP sent. Enter the six-digit code.");}else{const data=await api<{access:string}>("/auth/otp/verify",{method:"POST",body:JSON.stringify({phone,code})});localStorage.setItem("stitchcore_access",data.access);location.href="/order/new";}}catch(error){setMessage((error as ApiError).message??"Please try again.")}} return <section><h1>Sign in</h1><div className="form"><label>Phone number<input value={phone} onChange={e=>setPhone(e.target.value)} /></label>{sent&&<label>OTP<input inputMode="numeric" maxLength={6} value={code} onChange={e=>setCode(e.target.value)} /></label>}<button onClick={submit}>{sent?"Verify and continue":"Send OTP"}</button>{message&&<p className="notice">{message}</p>}</div></section> }
+

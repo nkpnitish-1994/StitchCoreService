@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Address, AlterationItem, DeviceToken, Garment, Order, StatusEvent, Vendor
+from .models import Address, AlterationItem, DeviceToken, Garment, Order, PickupSlot, Service, StatusEvent, Vendor
 
 
 class AddressSerializer(serializers.ModelSerializer):
@@ -53,6 +53,7 @@ class CreateOrderSerializer(serializers.Serializer):
     address_id = serializers.PrimaryKeyRelatedField(source="address", queryset=Address.objects.all())
     pickup_window = serializers.CharField(max_length=100)
     expected_delivery_date = serializers.DateField(required=False, allow_null=True)
+    quote_id = serializers.UUIDField(required=False)
     garments = GarmentSerializer(many=True, min_length=1)
 
     def validate_address(self, address):
@@ -61,6 +62,7 @@ class CreateOrderSerializer(serializers.Serializer):
         return address
 
     def create(self, validated_data):
+        validated_data.pop("quote_id", None)
         garments = validated_data.pop("garments")
         subtotal = sum(
             item["quoted_price_paise"] * garment.get("quantity", 1)
@@ -74,6 +76,41 @@ class CreateOrderSerializer(serializers.Serializer):
                 AlterationItem.objects.create(garment=garment, **alteration)
         StatusEvent.objects.create(order=order, from_status="", to_status=Order.Status.PLACED, changed_by=order.customer, note="Order placed")
         return order
+
+
+class OtpRequestSerializer(serializers.Serializer):
+    phone = serializers.RegexField(regex=r"^\+[1-9]\d{7,14}$", max_length=20)
+
+
+class OtpVerifySerializer(OtpRequestSerializer):
+    code = serializers.RegexField(regex=r"^\d{6}$", max_length=6)
+    full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+
+
+class ServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Service
+        fields = ("code", "name", "garment_type", "base_price_paise", "measurement_schema")
+
+
+class QuoteSerializer(serializers.Serializer):
+    address_id = serializers.PrimaryKeyRelatedField(queryset=Address.objects.all())
+    pickup_slot_id = serializers.PrimaryKeyRelatedField(queryset=PickupSlot.objects.filter(active=True), required=False, allow_null=True)
+    garments = serializers.ListField(child=serializers.DictField(), min_length=1)
+
+    def validate_address_id(self, address):
+        if address.user_id != self.context["request"].user.id:
+            raise serializers.ValidationError("Choose one of your saved addresses.")
+        return address
+
+    def validate_garments(self, garments):
+        for garment in garments:
+            if not garment.get("garment_type") or not garment.get("alterations"):
+                raise serializers.ValidationError("Every garment needs a type and at least one alteration.")
+            for item in garment["alterations"]:
+                if not item.get("service_code") or not isinstance(item.get("measurement"), dict):
+                    raise serializers.ValidationError("Every alteration needs a service_code and measurement object.")
+        return garments
 
 
 class StatusChangeSerializer(serializers.Serializer):
@@ -98,3 +135,8 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
         model = DeviceToken
         fields = ("platform", "token")
 
+
+class NotificationDeliverySerializer(serializers.Serializer):
+    state = serializers.ChoiceField(choices=("sent", "failed"))
+    provider_message_id = serializers.CharField(required=False, allow_blank=True)
+    failure_reason = serializers.CharField(required=False, allow_blank=True)

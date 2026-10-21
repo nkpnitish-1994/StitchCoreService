@@ -4,4 +4,11 @@ __pycache__/
 .env
 db.sqlite3
 media/
-
+node_modules/
+.next/
+dist/
+cdk.out/
+cdk.context.json
+coverage/
+.pytest_cache/
+.DS_Store

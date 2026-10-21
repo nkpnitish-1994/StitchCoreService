@@ -1,0 +1,23 @@
+name: Deploy beta
+on:
+  push: { branches: [main] }
+permissions: { contents: read, id-token: write }
+jobs:
+  deploy:
+    environment: beta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}, aws-region: ap-south-1 }
+      - run: pip install -r requirements-prod.txt
+      - run: python manage.py test
+      - working-directory: infra/cdk
+        run: npm install && npx cdk deploy --all --require-approval never -c env=beta
+      - name: Integration tests
+        run: echo "Run tests/integration against the API URL emitted by CDK after configuring beta secrets."
+

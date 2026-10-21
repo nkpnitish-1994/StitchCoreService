@@ -1,0 +1,1085 @@
+openapi: 3.0.3
+info:
+  title: StitchCore API
+  version: v1
+paths:
+  /api/v1/addresses/:
+    get:
+      operationId: v1_addresses_list
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+          description: ''
+    post:
+      operationId: v1_addresses_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Address'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Address'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+  /api/v1/addresses/{id}/:
+    get:
+      operationId: v1_addresses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    put:
+      operationId: v1_addresses_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Address'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Address'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Address'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    patch:
+      operationId: v1_addresses_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAddress'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAddress'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAddress'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    delete:
+      operationId: v1_addresses_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this address.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/otp/request:
+    post:
+      operationId: v1_auth_otp_request_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+        required: true
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/otp/verify:
+    post:
+      operationId: v1_auth_otp_verify_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerify'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpVerify'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpVerify'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/catalog/services:
+    get:
+      operationId: v1_catalog_services_list
+      tags:
+      - v1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Service'
+          description: ''
+  /api/v1/device-tokens/:
+    post:
+      operationId: v1_device_tokens_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeviceToken'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceToken'
+          description: ''
+  /api/v1/internal/notifications/{job_id}/delivery/:
+    post:
+      operationId: v1_internal_notifications_delivery_create
+      description: Callback used only by the SQS-triggered Lambda after a provider
+        attempt.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationDelivery'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NotificationDelivery'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NotificationDelivery'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationDelivery'
+          description: ''
+  /api/v1/orders/:
+    get:
+      operationId: v1_orders_list
+      parameters:
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - alteration_complete
+          - at_vendor
+          - cancelled
+          - customer_approval_needed
+          - delivered
+          - out_for_delivery
+          - picked_up
+          - pickup_assigned
+          - pickup_failed
+          - placed
+          - ready_for_delivery
+          - rework_required
+        description: |-
+          * `placed` - Placed
+          * `pickup_assigned` - Pickup assigned
+          * `picked_up` - Picked up
+          * `at_vendor` - At vendor
+          * `alteration_complete` - Alteration complete
+          * `ready_for_delivery` - Ready for delivery
+          * `out_for_delivery` - Out for delivery
+          * `delivered` - Delivered
+          * `pickup_failed` - Pickup failed
+          * `customer_approval_needed` - Customer approval needed
+          * `rework_required` - Rework required
+          * `cancelled` - Cancelled
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+          description: ''
+    post:
+      operationId: v1_orders_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrder'
+          description: ''
+  /api/v1/orders/{id}/:
+    get:
+      operationId: v1_orders_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    put:
+      operationId: v1_orders_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    patch:
+      operationId: v1_orders_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOrder'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+    delete:
+      operationId: v1_orders_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/orders/{id}/assign/:
+    post:
+      operationId: v1_orders_assign_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/{id}/status/:
+    post:
+      operationId: v1_orders_status_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this order.
+        required: true
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Order'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Order'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/v1/orders/quote:
+    post:
+      operationId: v1_orders_quote_create
+      tags:
+      - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Quote'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Quote'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+components:
+  schemas:
+    Address:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        label:
+          type: string
+          maxLength: 50
+        line1:
+          type: string
+          maxLength: 255
+        line2:
+          type: string
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 80
+        postal_code:
+          type: string
+          maxLength: 20
+        landmark:
+          type: string
+          maxLength: 255
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+      required:
+      - city
+      - id
+      - line1
+      - postal_code
+    AlterationItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        service_code:
+          type: string
+          maxLength: 80
+        measurement_data: {}
+        notes:
+          type: string
+        quoted_price_paise:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        approved_price_paise:
+          type: integer
+          readOnly: true
+          nullable: true
+      required:
+      - approved_price_paise
+      - id
+      - service_code
+    CreateOrder:
+      type: object
+      properties:
+        address_id:
+          type: integer
+        pickup_window:
+          type: string
+          maxLength: 100
+        expected_delivery_date:
+          type: string
+          format: date
+          nullable: true
+        quote_id:
+          type: string
+          format: uuid
+        garments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Garment'
+      required:
+      - address_id
+      - garments
+      - pickup_window
+    DeviceToken:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/PlatformEnum'
+        token:
+          type: string
+          maxLength: 512
+      required:
+      - platform
+      - token
+    Garment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        garment_type:
+          $ref: '#/components/schemas/GarmentTypeEnum'
+        colour:
+          type: string
+          maxLength: 60
+        quantity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+        qr_code:
+          type: string
+          readOnly: true
+        pickup_photo_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        condition_notes:
+          type: string
+        alterations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlterationItem'
+      required:
+      - alterations
+      - garment_type
+      - id
+      - qr_code
+    GarmentTypeEnum:
+      enum:
+      - trousers
+      - shirt
+      - kurta
+      - dress
+      - other
+      type: string
+      description: |-
+        * `trousers` - Trousers
+        * `shirt` - Shirt
+        * `kurta` - Kurta
+        * `dress` - Dress
+        * `other` - Other
+    NotificationDelivery:
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/StateEnum'
+        provider_message_id:
+          type: string
+        failure_reason:
+          type: string
+      required:
+      - state
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        pickup_window:
+          type: string
+          maxLength: 100
+        expected_delivery_date:
+          type: string
+          format: date
+          nullable: true
+        subtotal_paise:
+          type: integer
+          readOnly: true
+        delivery_fee_paise:
+          type: integer
+          readOnly: true
+        total_paise:
+          type: integer
+          readOnly: true
+        address:
+          allOf:
+          - $ref: '#/components/schemas/Address'
+          readOnly: true
+        garments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Garment'
+        status_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          readOnly: true
+        logistics_partner_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        vendor_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address
+      - created_at
+      - delivery_fee_paise
+      - garments
+      - id
+      - logistics_partner_id
+      - order_number
+      - pickup_window
+      - status
+      - status_events
+      - subtotal_paise
+      - total_paise
+      - updated_at
+      - vendor_id
+    OtpRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+          pattern: ^\+[1-9]\d{7,14}$
+      required:
+      - phone
+    OtpVerify:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+          pattern: ^\+[1-9]\d{7,14}$
+        code:
+          type: string
+          maxLength: 6
+          pattern: ^\d{6}$
+        full_name:
+          type: string
+          maxLength: 150
+      required:
+      - code
+      - phone
+    PatchedAddress:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        label:
+          type: string
+          maxLength: 50
+        line1:
+          type: string
+          maxLength: 255
+        line2:
+          type: string
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 80
+        postal_code:
+          type: string
+          maxLength: 20
+        landmark:
+          type: string
+          maxLength: 255
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+    PatchedOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        pickup_window:
+          type: string
+          maxLength: 100
+        expected_delivery_date:
+          type: string
+          format: date
+          nullable: true
+        subtotal_paise:
+          type: integer
+          readOnly: true
+        delivery_fee_paise:
+          type: integer
+          readOnly: true
+        total_paise:
+          type: integer
+          readOnly: true
+        address:
+          allOf:
+          - $ref: '#/components/schemas/Address'
+          readOnly: true
+        garments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Garment'
+        status_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusEvent'
+          readOnly: true
+        logistics_partner_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        vendor_id:
+          type: integer
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PlatformEnum:
+      enum:
+      - ios
+      - android
+      - web
+      type: string
+      description: |-
+        * `ios` - iOS
+        * `android` - Android
+        * `web` - Web
+    Quote:
+      type: object
+      properties:
+        address_id:
+          type: integer
+        pickup_slot_id:
+          type: integer
+          nullable: true
+        garments:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          minItems: 1
+      required:
+      - address_id
+      - garments
+    Service:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 120
+        garment_type:
+          $ref: '#/components/schemas/GarmentTypeEnum'
+        base_price_paise:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        measurement_schema: {}
+      required:
+      - base_price_paise
+      - code
+      - garment_type
+      - name
+    StateEnum:
+      enum:
+      - sent
+      - failed
+      type: string
+      description: |-
+        * `sent` - sent
+        * `failed` - failed
+    StatusEnum:
+      enum:
+      - placed
+      - pickup_assigned
+      - picked_up
+      - at_vendor
+      - alteration_complete
+      - ready_for_delivery
+      - out_for_delivery
+      - delivered
+      - pickup_failed
+      - customer_approval_needed
+      - rework_required
+      - cancelled
+      type: string
+      description: |-
+        * `placed` - Placed
+        * `pickup_assigned` - Pickup assigned
+        * `picked_up` - Picked up
+        * `at_vendor` - At vendor
+        * `alteration_complete` - Alteration complete
+        * `ready_for_delivery` - Ready for delivery
+        * `out_for_delivery` - Out for delivery
+        * `delivered` - Delivered
+        * `pickup_failed` - Pickup failed
+        * `customer_approval_needed` - Customer approval needed
+        * `rework_required` - Rework required
+        * `cancelled` - Cancelled
+    StatusEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        from_status:
+          type: string
+          maxLength: 32
+        to_status:
+          $ref: '#/components/schemas/ToStatusEnum'
+        changed_by_name:
+          type: string
+          readOnly: true
+        note:
+          type: string
+        proof_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - changed_by_name
+      - created_at
+      - id
+      - to_status
+    ToStatusEnum:
+      enum:
+      - placed
+      - pickup_assigned
+      - picked_up
+      - at_vendor
+      - alteration_complete
+      - ready_for_delivery
+      - out_for_delivery
+      - delivered
+      - pickup_failed
+      - customer_approval_needed
+      - rework_required
+      - cancelled
+      type: string
+      description: |-
+        * `placed` - Placed
+        * `pickup_assigned` - Pickup assigned
+        * `picked_up` - Picked up
+        * `at_vendor` - At vendor
+        * `alteration_complete` - Alteration complete
+        * `ready_for_delivery` - Ready for delivery
+        * `out_for_delivery` - Out for delivery
+        * `delivered` - Delivered
+        * `pickup_failed` - Pickup failed
+        * `customer_approval_needed` - Customer approval needed
+        * `rework_required` - Rework required
+        * `cancelled` - Cancelled
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

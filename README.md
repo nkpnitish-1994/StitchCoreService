@@ -1,6 +1,38 @@
-# Alteration Platform API
+# StitchCore
 
-The first backend slice for a manually operated clothing-alteration service.
+StitchCore is a managed doorstep clothing-alteration platform. `task.md` is the full delivery source of truth; `AGENTS.md` is the durable working context.
+
+## CloudShell build and deploy path
+
+```bash
+git clone https://github.com/nkpnitish-1994/StitchCoreService.git
+cd StitchCoreService
+cp .env.example .env
+make bootstrap
+make up
+make migrate
+python scripts/seed_beta.py
+make test
+```
+
+For the web application:
+
+```bash
+cd frontend/web
+npm install
+npm run build
+```
+
+For infrastructure synthesis/deployment (after authenticating the AWS CLI and setting beta/production configuration):
+
+```bash
+cd infra/cdk
+npm install
+npx cdk synth -c env=beta
+npx cdk deploy --all -c env=beta
+```
+
+Do not deploy production until external provider secrets, domains, database deletion policy, GitHub OIDC roles, and beta integration tests are configured.
 
 ## Included
 

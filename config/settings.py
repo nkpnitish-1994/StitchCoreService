@@ -1,8 +1,9 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key-change-me-before-production-32chars")
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
@@ -14,6 +15,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "django_filters",
     "operations",
 ]
@@ -62,11 +64,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "operations.User"
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication", "rest_framework.authentication.BasicAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+SPECTACULAR_SETTINGS = {"TITLE": "StitchCore API", "VERSION": "v1", "SERVE_INCLUDE_SCHEMA": False}
+SIMPLE_JWT = {"ACCESS_TOKEN_LIFETIME": timedelta(minutes=30), "REFRESH_TOKEN_LIFETIME": timedelta(days=30), "ROTATE_REFRESH_TOKENS": True}
 
 AWS_REGION = os.getenv("AWS_REGION", "ap-south-1")
-NOTIFICATION_QUEUE_URL = os.getenv("NOTIFICATION_QUEUE_URL", "")
+AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL", "")
+NOTIFICATION_QUEUE_URL = os.getenv("AWS_SQS_NOTIFICATION_QUEUE_URL", "")
 INTERNAL_NOTIFICATION_SECRET = os.getenv("INTERNAL_NOTIFICATION_SECRET", "")
+OTP_SECRET = os.getenv("OTP_SECRET", SECRET_KEY)
+OTP_PROVIDER = os.getenv("OTP_PROVIDER", "console")

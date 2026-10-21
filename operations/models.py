@@ -1,4 +1,6 @@
 import uuid
+from datetime import timedelta
+from django.contrib.auth.hashers import check_password, make_password
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator
@@ -19,6 +21,35 @@ class User(AbstractUser):
     @property
     def is_ops_admin(self):
         return self.is_superuser or self.role == self.Role.ADMIN
+
+
+class OtpChallenge(models.Model):
+    class Purpose(models.TextChoices):
+        LOGIN = "login", "Login"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    phone = models.CharField(max_length=20, db_index=True)
+    purpose = models.CharField(max_length=20, choices=Purpose.choices, default=Purpose.LOGIN)
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def issue(cls, phone, code):
+        return cls.objects.create(phone=phone, code_hash=make_password(code), expires_at=timezone.now() + timedelta(minutes=10))
+
+    def consume(self, code):
+        if self.consumed_at or timezone.now() > self.expires_at or self.attempts >= 5:
+            return False
+        self.attempts += 1
+        if not check_password(code, self.code_hash):
+            self.save(update_fields=["attempts"])
+            return False
+        self.consumed_at = timezone.now()
+        self.save(update_fields=["attempts", "consumed_at"])
+        return True
 
 
 class Address(models.Model):
@@ -46,6 +77,30 @@ class Vendor(models.Model):
         return self.name
 
 
+class Service(models.Model):
+    GARMENT_TYPES = (("trousers", "Trousers"), ("shirt", "Shirt"), ("kurta", "Kurta"), ("dress", "Dress"), ("other", "Other"))
+    code = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=120)
+    garment_type = models.CharField(max_length=20, choices=GARMENT_TYPES)
+    base_price_paise = models.PositiveIntegerField()
+    measurement_schema = models.JSONField(default=dict)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["garment_type", "active"])]
+
+
+class PickupSlot(models.Model):
+    label = models.CharField(max_length=100)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    capacity = models.PositiveIntegerField(default=20)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["starts_at", "active"])]
+
+
 class Order(models.Model):
     class Status(models.TextChoices):
         PLACED = "placed", "Placed"
@@ -69,9 +124,12 @@ class Order(models.Model):
     vendor = models.ForeignKey(Vendor, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.PLACED)
     pickup_window = models.CharField(max_length=100)
+    pickup_slot = models.ForeignKey(PickupSlot, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders")
     expected_delivery_date = models.DateField(null=True, blank=True)
     subtotal_paise = models.PositiveIntegerField(default=0)
     delivery_fee_paise = models.PositiveIntegerField(default=0)
+    discount_paise = models.PositiveIntegerField(default=0)
+    idempotency_key = models.UUIDField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -82,7 +140,16 @@ class Order(models.Model):
 
     @property
     def total_paise(self):
-        return self.subtotal_paise + self.delivery_fee_paise
+        return self.subtotal_paise + self.delivery_fee_paise - self.discount_paise
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["customer", "created_at"]),
+            models.Index(fields=["logistics_partner", "status"]),
+            models.Index(fields=["vendor", "status"]),
+            models.Index(fields=["status", "expected_delivery_date"]),
+        ]
+        constraints = [models.UniqueConstraint(fields=["customer", "idempotency_key"], name="unique_customer_idempotency_key")]
 
     def __str__(self):
         return self.order_number
@@ -114,6 +181,8 @@ class Garment(models.Model):
 class AlterationItem(models.Model):
     garment = models.ForeignKey(Garment, on_delete=models.CASCADE, related_name="alterations")
     service_code = models.CharField(max_length=80)
+    service_name_snapshot = models.CharField(max_length=120, blank=True)
+    measurement_schema_version = models.PositiveSmallIntegerField(default=1)
     measurement_data = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True)
     quoted_price_paise = models.PositiveIntegerField(default=0)
@@ -165,3 +234,39 @@ class DeviceToken(models.Model):
     active = models.BooleanField(default=True)
     last_seen_at = models.DateTimeField(auto_now=True)
 
+
+class MediaAsset(models.Model):
+    class Purpose(models.TextChoices):
+        GARMENT = "garment", "Garment"
+        PICKUP_PROOF = "pickup_proof", "Pickup proof"
+        DELIVERY_PROOF = "delivery_proof", "Delivery proof"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    s3_key = models.CharField(max_length=512, unique=True)
+    content_type = models.CharField(max_length=100)
+    size_bytes = models.PositiveIntegerField()
+    checksum = models.CharField(max_length=128, blank=True)
+    purpose = models.CharField(max_length=30, choices=Purpose.choices)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Payment(models.Model):
+    class State(models.TextChoices):
+        CREATED = "created", "Created"
+        PENDING = "pending", "Pending"
+        PAID = "paid", "Paid"
+        FAILED = "failed", "Failed"
+        REFUND_PENDING = "refund_pending", "Refund pending"
+        REFUNDED = "refunded", "Refunded"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
+    provider_order_id = models.CharField(max_length=128, unique=True)
+    provider_payment_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    amount_paise = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default="INR")
+    state = models.CharField(max_length=20, choices=State.choices, default=State.CREATED)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

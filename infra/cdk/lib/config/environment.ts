@@ -1,0 +1,4 @@
+export type EnvironmentName = "beta" | "production";
+export type EnvironmentConfig = { name: EnvironmentName; account: string; region: string; domainName?: string; apiDesiredCount: number; apiCpu: number; apiMemoryMiB: number; deletionProtection: boolean; backupRetentionDays: number; logRetentionDays: number; };
+export function environmentConfig(name: string): EnvironmentConfig { const production = name === "production"; if (name !== "beta" && !production) throw new Error("Set CDK context env=beta or env=production"); return { name: name as EnvironmentName, account: process.env.CDK_DEFAULT_ACCOUNT ?? "", region: process.env.CDK_DEFAULT_REGION ?? "ap-south-1", domainName: process.env.STITCHCORE_DOMAIN, apiDesiredCount: production ? 2 : 1, apiCpu: 512, apiMemoryMiB: 1024, deletionProtection: production, backupRetentionDays: production ? 14 : 3, logRetentionDays: production ? 90 : 14 }; }
+

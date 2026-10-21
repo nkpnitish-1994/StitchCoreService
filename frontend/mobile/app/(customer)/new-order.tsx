@@ -1,0 +1,4 @@
+import { SafeAreaView, Text, TextInput, Button, StyleSheet } from "react-native";
+import { useState } from "react";
+export default function NewOrder(){const [instruction,setInstruction]=useState("Reduce waist by 1 inch");return <SafeAreaView style={s.page}><Text style={s.title}>New alteration</Text><Text>Trousers · standard alteration</Text><TextInput style={s.input} value={instruction} onChangeText={setInstruction}/><Button title="Continue to price" onPress={()=>{}}/><Text style={s.note}>The production flow will load services, measurements, address, payment, and order confirmation from the API.</Text></SafeAreaView>};const s=StyleSheet.create({page:{padding:24,gap:18,backgroundColor:"#f6f2e9",flex:1},title:{fontSize:28,fontWeight:"700"},input:{backgroundColor:"white",padding:14,borderRadius:6},note:{color:"#4d5b53"}});
+

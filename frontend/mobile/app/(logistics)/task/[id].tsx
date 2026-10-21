@@ -1,0 +1,3 @@
+import { useLocalSearchParams } from "expo-router";
+import { SafeAreaView, Text, Button, StyleSheet } from "react-native";
+export default function Task(){const {id}=useLocalSearchParams<{id:string}>();return <SafeAreaView style={s.page}><Text style={s.title}>Task {id}</Text><Text>Assigned customer and address details will be loaded from the logistics API.</Text><Button title="Scan garment QR" onPress={()=>{}}/><Button title="Capture proof" onPress={()=>{}}/><Button title="Confirm task" onPress={()=>{}}/></SafeAreaView>};const s=StyleSheet.create({page:{padding:20,gap:18,flex:1,backgroundColor:"#f6f2e9"},title:{fontSize:28,fontWeight:"700"}});
